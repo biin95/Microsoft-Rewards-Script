@@ -129,7 +129,8 @@ async function runAutomatedLogin({ page, account, isMobile }) {
                 if (alertText) log('WARN', `ERROR_ALERT text: ${alertText}`)
             }
 
-            // Skip buttons on "help us protect your account" / add-security-info pages
+            // "Help us protect your account" / add-security-info pages:
+            // prefer skipping; otherwise add an email proof so a code can be sent
             const skipBtn =
                 (await visible(page, S.secondaryButton, 800)) ||
                 (await visible(page, '#iShowSkip, #iCancel, a#iLandingViewSkip, button#SkipBtn', 800))
@@ -138,6 +139,15 @@ async function runAutomatedLogin({ page, account, isMobile }) {
                 if (/skip|cancel|not now|稍后|跳过|no thanks/.test(skipText)) {
                     log(`INFO`, `SKIP button clicked ("${skipText}")`)
                     await skipBtn.click()
+                    continue
+                }
+            } else {
+                const addEmail =
+                    (await visible(page, '#iSelectProofActionEmail', 800)) ||
+                    (await visible(page, '[data-testid="addEmailProof"], button:has-text("Email"), button:has-text("电子邮件")', 800))
+                if (addEmail) {
+                    log('INFO', 'PROTECT_ACCOUNT: choosing add-email proof')
+                    await addEmail.click()
                     continue
                 }
             }
