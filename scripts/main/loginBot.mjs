@@ -339,6 +339,29 @@ async function main() {
 
         await saveBothSessions({ dbPath, email: account.email, cookies, locale, userAgentManager })
         log('SUCCESS', 'All sessions saved. You can close this Codespace.')
+    } catch (error) {
+        // Best-effort: persist whatever cookies exist so partial sign-ins are not wasted
+        try {
+            const ctx = browser.contexts()[0]
+            if (ctx) {
+                const partial = await ctx.cookies()
+                if (partial.length) {
+                    const db = openSessionDb(dbPath)
+                    try {
+                        ensureSessionSchema(db)
+                        const locale2 = resolveAccountLocale(account, undefined)
+                        const fp = createFingerprint(false, locale2)
+                        saveSessionRow(db, account.email, 'desktop', createSessionState(partial), fp, true)
+                        log('WARN', `Partial sign-in saved: cookies=${partial.length} (desktop row only)`)
+                    } finally {
+                        closeSessionDb(db)
+                    }
+                }
+            }
+        } catch (saveErr) {
+            log('WARN', `Best-effort save failed: ${saveErr?.message ?? saveErr}`)
+        }
+        throw error
     } finally {
         await browser.close().catch(() => undefined)
     }
