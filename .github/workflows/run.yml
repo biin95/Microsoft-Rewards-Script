@@ -25,6 +25,16 @@ jobs:
           restore-keys: |
             sessions-
 
+      - name: Restore sessions from secret (first run)
+        run: |
+          if [ ! -d sessions ] && [ -n "${{ secrets.SESSIONS_B64 }}" ]; then
+            echo "${{ secrets.SESSIONS_B64 }}" | base64 -d | tar xzf -
+            echo "sessions restored from secret:"
+            ls -la sessions
+          else
+            echo "no secret session to restore (dir exists: $( [ -d sessions ] && echo yes || echo no ))"
+          fi
+
       - name: Install & build
         run: |
           npm run pre-build
