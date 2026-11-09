@@ -303,6 +303,7 @@ async function buildContext({ browser, fingerprint, isMobile, locale, storageSta
 }
 
 async function saveBothSessions({ dbPath, email, cookies, locale, userAgentManager }) {
+    fs.mkdirSync(path.dirname(dbPath), { recursive: true, mode: 0o700 })
     const db = openSessionDb(dbPath)
     try {
         ensureSessionSchema(db)
@@ -386,6 +387,7 @@ async function main() {
             if (ctx) {
                 const partial = await ctx.cookies()
                 if (partial.length) {
+                    fs.mkdirSync(path.dirname(dbPath), { recursive: true, mode: 0o700 })
                     const db = openSessionDb(dbPath)
                     try {
                         ensureSessionSchema(db)
