@@ -106,9 +106,11 @@ async function runAutomatedLogin({ page, account, isMobile }) {
     const statesSeen = new Set()
 
     try {
-        for (let i = 0; i < 60; i++) {
+        for (let i = 0; i < 90; i++) {
             const url = page.url()
             const host = new URL(url).hostname
+            const pageTitle = await page.title().catch(() => '')
+            log('INFO', `poll#${i}: url=${url} | title="${pageTitle}"` )
             if (host === 'bing.com' || host.endsWith('.bing.com') || host === 'account.microsoft.com') {
                 log('INFO', `Signed in (landed on ${host})`)
                 return
@@ -118,6 +120,34 @@ async function runAutomatedLogin({ page, account, isMobile }) {
 
             if (await visible(page, S.accountLocked, 1500)) {
                 throw new Error('Account locked (serviceAbuseLandingTitle) - sign-in aborted')
+            }
+
+            // Surface any error banner text so failures are diagnosable
+            const alert = await visible(page, S.errorAlert, 800)
+            if (alert && i % 3 === 0) {
+                const alertText = (await alert.innerText().catch(() => '')).replace(/\s+/g, ' ').slice(0, 200)
+                if (alertText) log('WARN', `ERROR_ALERT text: ${alertText}`)
+            }
+
+            // Skip buttons on "help us protect your account" / add-security-info pages
+            const skipBtn =
+                (await visible(page, S.secondaryButton, 800)) ||
+                (await visible(page, '#iShowSkip, #iCancel, a#iLandingViewSkip, button#SkipBtn', 800))
+            if (skipBtn) {
+                const skipText = (await skipBtn.innerText().catch(() => '')).toLowerCase()
+                if (/skip|cancel|not now|稍后|跳过|no thanks/.test(skipText)) {
+                    log(`INFO`, `SKIP button clicked ("${skipText}")`)
+                    await skipBtn.click()
+                    continue
+                }
+            }
+
+            // Legacy KMSI "stay signed in?" button
+            const legacyKmsi = await visible(page, '#idSIButton9, #acceptButton', 800)
+            if (legacyKmsi && /idSIButton9|acceptButton/.test(await legacyKmsi.evaluate(el => el.id))) {
+                log('INFO', 'KMSI legacy: clicking yes/accept')
+                await legacyKmsi.click()
+                continue
             }
 
             // Email entry
