@@ -17,6 +17,8 @@ import {
     closeSessionDb,
     ensureSessionSchema,
     findAccountByEmail,
+    getDirname,
+    getProjectRoot,
     getSessionDbPath,
     loadAccountsFromEnv,
     loadConfig,
@@ -243,8 +245,8 @@ async function main() {
         process.exit(1)
     }
 
-    const { getDirname } = await import('../../scripts/lib/projectFiles.cjs')
-    const projectRoot = getProjectRoot(import.meta.url)
+    const __dirname = getDirname(import.meta.url)
+    const projectRoot = getProjectRoot(__dirname)
 
     const accounts = loadAccountsFromEnv(projectRoot)
     const account = findAccountByEmail(accounts, emailArg)
