@@ -1,0 +1,40 @@
+name: Debug login bot
+
+on:
+  workflow_dispatch:
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install browser + system deps
+        run: npx patchright install --with-deps chromium
+
+      - name: Install & build project
+        run: |
+          npm run pre-build
+          npm run build
+
+      - name: Write .env from secret
+        run: echo "${{ secrets.ENV_FILE_B64 }}" | base64 -d > .env
+
+      - name: Run loginBot (CI mode)
+        run: node scripts/main/loginBot.mjs 15521254660@163.com 2>&1 | tee login.log
+        env:
+          CI_LOGIN: 'true'
+        continue-on-error: true
+
+      - name: Dump diagnostics
+        if: always()
+        run: |
+          echo "===== login.log ====="
+          cat login.log 2>/dev/null || echo "(no log file)"
+          echo "===== sessions dir ====="
+          ls -la sessions/ 2>/dev/null || echo "(no sessions dir)"
