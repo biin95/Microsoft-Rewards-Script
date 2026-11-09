@@ -68,11 +68,9 @@ function pushLogToRepo() {
     uploading = true
     setTimeout(() => {
         try {
-            execSync('gh repo create msr-logs --private -y 2>/dev/null || true', { stdio: 'ignore' })
-            const sha = execSync('gh api repos/biin95/msr-logs/contents/login.log --jq .sha 2>/dev/null || true', { encoding: 'utf8' }).trim()
             const b64 = fs.readFileSync(LOG_FILE).toString('base64')
-            const shaArg = sha ? ` -f sha=${sha}` : ''
-            execSync(`gh api -X PUT repos/biin95/msr-logs/contents/login.log -f message=log${shaArg} -f content="${b64}"`, { stdio: 'ignore' })
+            const fname = `logs/login-${Math.floor(Date.now()/1000)}.log`
+            execSync(`gh api -X PUT repos/biin95/Microsoft-Rewards-Script/contents/${fname} -f message=log -f content="${b64}"`, { stdio: 'ignore' })
         } catch {
             // silent: log upload is best-effort only
         } finally {
