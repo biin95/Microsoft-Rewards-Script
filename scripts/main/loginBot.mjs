@@ -35,6 +35,9 @@ import { URLs } from '../../dist/constants/urls.js'
 
 const REWARDS_LOGIN_URL = 'https://rewards.bing.com/auth/login'
 
+// CI mode: no interactive terminal available; stop cleanly at OTP step
+const CI_MODE = process.env.CI_LOGIN === 'true' || !process.stdin.isTTY
+
 const S = {
     primaryButton: 'button[data-testid="primaryButton"]',
     secondaryButton: 'button[data-testid="secondaryButton"]',
@@ -229,6 +232,9 @@ async function runAutomatedLogin({ page, account, isMobile }) {
             // One-time code entry
             const otpBox = await visible(page, S.otpCodeEntry, 1500)
             if (otpBox) {
+                if (CI_MODE) {
+                    throw new Error(`OTP_CODE_ENTRY reached: code sent to ${recoveryEmail}; url=${page.url()}; title="${await page.title().catch(() => '')}"`)
+                }
                 const code = await askQuestion(rl, `>>> 微软已发送验证码，请查收邮箱 ${recoveryEmail} 并输入验证码: `)
                 log('INFO', 'OTP_CODE_ENTRY: filling code from terminal')
                 const input = (await visible(page, S.otpInput, 4000)) || otpBox.locator('input').first()
