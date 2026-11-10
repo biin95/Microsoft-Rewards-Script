@@ -48,7 +48,17 @@ jobs:
           json.dump(data, open('data.json', 'w'), ensure_ascii=False)
           print(json.dumps(data, ensure_ascii=False))
           PYEOF
-      - name: Upload points artifact
+      - name: Commit points.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          SHA=""
+          SHA=$(gh api "repos/$REPO/contents/data/points.json" --jq .sha 2>/dev/null) || SHA=""
+          gh api -X PUT "repos/$REPO/contents/data/points.json" \
+            -f message="points $(date -u +%F)" \
+            -f content="$(base64 -w0 data.json)" > /dev/null && echo published
+      - name: Upload artifact backup
         uses: actions/upload-artifact@v4
         with:
           name: points
