@@ -1,0 +1,68 @@
+name: Publish points summary
+
+on:
+  workflow_run:
+    workflows: ["Run Microsoft Rewards Script"]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Extract summary from run log
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh run view "$RUN_ID" --repo "$REPO" --log > run.log 2>/dev/null || true
+          python3 - <<'PYEOF'
+          import json, re, datetime
+          try:
+              log = open('run.log', errors='ignore').read()
+          except Exception:
+              log = ''
+          def grab(p, default=None):
+              m = re.findall(p, log)
+              return m[-1] if m else default
+          def grab_int(p):
+              v = grab(p)
+              try:
+                  return int(v)
+              except Exception:
+                  return None
+          status = grab(r'RUN-END.*?status=(\w+)', 'unknown')
+          now = datetime.datetime.now(datetime.timezone.utc)
+          local = now.astimezone(datetime.timezone(datetime.timedelta(hours=8)))
+          data = {
+              "date": now.strftime('%Y-%m-%d'),
+              "checked_at": local.strftime('%m-%d %H:%M'),
+              "local_time": local.strftime('%m-%d %H:%M'),
+              "balance": grab_int(r'currentBalance=(\d+)'),
+              "gained": grab_int(r'pointsGained=(\d+)'),
+              "tasks_done": grab_int(r'activities:\s*(\d+) completed'),
+              "tasks_total": grab_int(r'activities:\s*\d+ completed,\s*(\d+) incomplete'),
+              "runtime_min": grab(r'runtimeMinutes=([\d.]+)'),
+              "status": status,
+          }
+          if data["tasks_done"] is not None and data["tasks_total"] is not None:
+              data["tasks_total"] = data["tasks_done"] + data["tasks_total"]
+          json.dump(data, open('data.json', 'w'), ensure_ascii=False)
+          print(json.dumps(data, ensure_ascii=False))
+          PYEOF
+      - name: Commit points.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          SHA=$(gh api "repos/$REPO/contents/data/points.json" --jq .sha 2>/dev/null || true)
+          gh api -X PUT "repos/$REPO/contents/data/points.json" \
+            -f message="points $(date -u +%F)" \
+            ${SHA:+-f sha=$SHA} \
+            -f content="$(base64 -w0 data.json)" > /dev/null
+          echo "published"
