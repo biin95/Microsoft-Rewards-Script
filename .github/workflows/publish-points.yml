@@ -48,7 +48,7 @@ jobs:
           }
           inc = grab(r'activities:\s*\d+ completed,\s*(\d+) incomplete')
           if inc is not None and data["tasks_total"] is None and data["tasks_done"] is not None:
-              data["tasks_total"] = data["tasks_done"] + int(inc)
+              data["tasks_total"] = str(int(data["tasks_done"]) + int(inc))
           json.dump(data, open('data.json', 'w'), ensure_ascii=False)
           print(json.dumps(data, ensure_ascii=False))
           PYEOF
